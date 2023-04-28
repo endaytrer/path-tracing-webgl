@@ -1,0 +1,28 @@
+body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+.container {
+    overflow: hidden;
+    width: 750px;
+    height: 500px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.peripheral {
+    display: flex;
+}
+#canvas {
+    scale: 0.5;
+}
+#ring {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid rgba(0, 255, 0, 0.5);
+}

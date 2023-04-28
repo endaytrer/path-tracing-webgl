@@ -1,0 +1,9 @@
+{
+    "include": ["./*.ts"],
+    "compilerOptions": {
+        "declaration": true,
+        "experimentalDecorators": true,
+        "lib": ["ES2021", "DOM"],
+        "target": "ES6"
+    }
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="peripheral">
+        <div class="container">
+            <canvas id="canvas"></canvas>
+            <div id="ring"></div>
+        </div>
+        <div class="params">
+            <div>
+                <button id="af">AF</button>
+                <button id="shot">Shot</button>
+            </div>
+            <br>
+            <div>
+                <label for="frame">Frame size:</label>
+                <select id="frame">
+                    <option value="0.036">Full Frame</option>
+                    <option value="0.0236">APS-C</option>
+                </select>
+            </div>
+            <div>
+                <label for="lens">Lens:</label>
+                <select id="lens">
+                    <option value="24-70/2.8">Canon 24-70mm f/2.8</option>
+                    <option value="16-35/2.8">Canon 16-35mm f/2.8</option>
+                    <option value="70-200/2.8">Canon 70-200mm f/2.8</option>
+                    <option value="35/1.4">Canon 35mm f/1.4</option>
+                    <option value="50/1.2">Canon 50mm f/1.2</option>
+                    <option value="85/1.4">Canon 85mm f/1.4</option>
+                    <option value="16-55/2.8">Fujifilm 16-55mm f/2.8</option>
+                    <option value="18-55/2.8">Fujifilm 18-55mm f/2.8</option>
+                    <option value="16-80/4">Fujifilm 16-80mm f/4</option>
+                    <option value="70-300/4">Fujifilm 70-300mm f/4</option>
+                    <option value="27/2.8">Fujifilm 27mm f/2.8</option>
+                    <option value="33/1.4">Fujifilm 33mm f/1.4</option>
+                    <option value="50/1">Fujifilm 50mm f/1</option>
+                    <option value="8-800/1">Custom</option>
+                </select>
+            </div>
+            <br>
+            <div>
+                <label for="focal">Focal Length: </label>
+                <input type="range" id="focal" min="24" max="70" value="24">
+                <span id="focal-display">24mm</span>
+            </div>
+            <div>
+                <label for="aperture">Aperture: </label>
+                <input type="range" id="aperture" min="2.8" max="22" step="0.1" value="2.8">
+                <i>f</i>/<span id="aperture-display">2.8</span>
+            </div>
+            <div>
+                <label for="objd">Object Distance:</label>
+                <input id="objd" type="number" value="6">m
+            </div>
+            <br>
+            <div>
+                <label for="batch">Batch Size</label>
+                <input id="batch" type="number" value="10">
+            </div>
+            <div>
+                <label for="exposure">Exposure</label>
+                <input id="exposure" type="range" min="-1.0" max="1.0" step="0.1" value="0.0">
+                <span id="exposure-display">0.0</span>
+            </div>
+            <br>
+            Frame Generation Time:<span id="generation"></span>
+            <br>
+            FPS: <span id="fps"></span>
+        </div>
+    </div>
+    
+</body>
+<script src="modules/gl-matrix-min.js"></script>
+<script type="module" src="index.js"></script>
+</html>
