@@ -9,6 +9,11 @@
 </head>
 <body>
     <div class="peripheral">
+        <div class="stats">
+            <label for="generation">Frametime:</label><span id="generation"></span>
+            <br>
+            <label for="fps">FPS: </label><span id="fps"></span>
+        </div>
         <div class="container">
             <canvas id="canvas"></canvas>
             <div id="ring"></div>
@@ -47,14 +52,20 @@
             </div>
             <br>
             <div>
-                <label for="focal">Focal Length: </label>
-                <input type="range" id="focal" min="24" max="70" value="24">
-                <span id="focal-display">24mm</span>
+                <label for="focal">Focal Length: <span id="focal-display">24mm</span></label>
+                <div class="range" id="range-focal">
+                    <div class="move"></div>
+                    <div class="static"></div>
+                </div>
+                
             </div>
             <div>
-                <label for="aperture">Aperture: </label>
-                <input type="range" id="aperture" min="2.8" max="22" step="0.1" value="2.8">
-                <i>f</i>/<span id="aperture-display">2.8</span>
+                <label for="aperture">Aperture: <i>f</i>/<span id="aperture-display">2.8</span></label>
+                <div class="range" id="range-aperture">
+                    <div class="move"></div>
+                    <div class="static"></div>
+                </div>
+                
             </div>
             <div>
                 <label for="objd">Object Distance:</label>
@@ -63,17 +74,13 @@
             <br>
             <div>
                 <label for="batch">Batch Size</label>
-                <input id="batch" type="number" value="10">
+                <input id="batch" type="number" value="1">
             </div>
             <div>
                 <label for="exposure">Exposure</label>
                 <input id="exposure" type="range" min="-1.0" max="1.0" step="0.1" value="0.0">
                 <span id="exposure-display">0.0</span>
             </div>
-            <br>
-            Frame Generation Time:<span id="generation"></span>
-            <br>
-            FPS: <span id="fps"></span>
         </div>
     </div>
     

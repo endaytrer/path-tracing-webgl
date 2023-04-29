@@ -113,7 +113,6 @@ class Shader {
             this.prevTextures.push(prevTexture);
             this.textureBindings.push([this.gl.getUniformLocation(program, 'src'), this.gl.getUniformLocation(program, 'prev')]);
         }
-        console.log(this);
     }
     inject(pass) {
         this.gl.activeTexture(this.gl.TEXTURE1);

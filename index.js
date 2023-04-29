@@ -19,44 +19,63 @@ const canvas = document.getElementById('canvas');
 const shot = document.getElementById('shot');
 const af = document.getElementById('af');
 const objd = document.getElementById('objd');
-const focal = document.getElementById('focal');
 const frame = document.getElementById('frame');
 const focalDisplay = document.getElementById('focal-display');
-const apertureInput = document.getElementById('aperture');
 const apertureDisplay = document.getElementById('aperture-display');
 const lens = document.getElementById('lens');
 const batch = document.getElementById('batch');
 const exposureInput = document.getElementById('exposure');
 const exposureDisplay = document.getElementById('exposure-display');
 const generation = document.getElementById('generation');
+const rangeFocal = document.getElementById('range-focal');
+const rangeAperture = document.getElementById('range-aperture');
 const fps = document.getElementById('fps');
+let focalLength = 24;
+let focalLengthMin = 24;
+let focalLengthMax = 70;
+let aperture = 2.8;
+let apertureMin = 2.8;
+let apertureMax = 22;
 let animation;
 canvas.width = 1500;
 canvas.height = 1000;
 class Sphere {
-    constructor(position, radius, albedo, emission) {
+    constructor(position, radius, albedo, specular, smoothness, emission) {
         this.position = [0, 0, 0];
         this.radius = 0;
         this.albedo = [0, 0, 0];
         this.specular = [0, 0, 0];
         this.emission = [0, 0, 0];
-        this.smoothness = [0, 0, 0];
+        this.smoothness = 0;
         this.position = position;
         this.radius = radius;
         this.albedo = albedo;
+        this.specular = specular;
+        this.smoothness = smoothness;
         this.emission = emission;
     }
     toParam() {
         return [...this.position, this.radius, ...this.albedo, ...this.specular, ...this.emission, this.smoothness];
     }
 }
-const rng = new RNG(1);
+const rng = new RNG(42);
 const spheres = [];
-spheres.push(new Sphere([0, 0, -10], 1.5, [0.4, 0.4, 0.4], [0, 0, 0]));
-spheres.push(new Sphere([0, 0.4, -4], 0.4, [0.9, 0.2, 0.2], [0, 0, 0]));
-spheres.push(new Sphere([-0.5, 0.8, -8], 0.3, [1, 1, 1], [10, 10, 10]));
-for (let i = 0; i < 8; i++) {
-    spheres.push(new Sphere([rng.nextFloat() * 4 - 2, rng.nextFloat(), rng.nextFloat() * 4 - 2], rng.nextFloat() * 0.3 + 0.2, [rng.nextFloat(), rng.nextFloat(), rng.nextFloat()], rng.nextFloat() > 0.3 ? [0, 0, 0] : [rng.nextFloat() * 10, rng.nextFloat() * 10, rng.nextFloat() * 10]));
+for (let i = 0; i < 10; i++) {
+    const radius = rng.nextFloat() * 0.3 + 0.2;
+    const pos = [rng.nextFloat() * 8 - 4, radius, rng.nextFloat() * 8 - 4];
+    let flag = true;
+    for (const sphere of spheres) {
+        if (Math.pow(sphere.position[0] - pos[0], 2) + Math.pow(sphere.position[2] - pos[2], 2) < Math.pow(sphere.radius + radius, 2)) {
+            flag = false;
+            break;
+        }
+    }
+    if (!flag) {
+        i -= 1;
+        continue;
+    }
+    const albedo = [rng.nextFloat(), rng.nextFloat(), rng.nextFloat()];
+    spheres.push(new Sphere(pos, radius, albedo, albedo, rng.nextFloat(), rng.nextFloat() > 0.3 ? [0, 0, 0] : [rng.nextFloat() * 40, rng.nextFloat() * 40, rng.nextFloat() * 40]));
 }
 class RayTracer extends Shader {
     constructor() {
@@ -67,8 +86,8 @@ class RayTracer extends Shader {
         this.t = 0;
         this.w = canvas.width;
         this.h = canvas.height;
-        this.focalLength = parseInt(focal.value) / 1000;
-        this.aperture = parseInt(focal.value) / parseFloat(apertureInput.value) / 1000;
+        this.focalLength = focalLength / 1000;
+        this.aperture = focalLength / aperture / 1000;
         this.objectDistance = parseFloat(objd.value);
         this.frameSize = parseFloat(frame.value);
         this.exposure = Math.exp(parseFloat(exposureInput.value));
@@ -129,6 +148,120 @@ __decorate([
 __decorate([
     uniform1i(1)
 ], RayTracer.prototype, "needRerender", void 0);
+function addScaleFocal(value) {
+    const labels = Array.prototype.slice.call(rangeFocal.getElementsByClassName('val'));
+    for (let i = 0; i < labels.length; i++) {
+        labels[i].setAttribute('reuse', 'false');
+    }
+    const newLabels = [];
+    for (let k = 5 * Math.floor(value / 5); k > focalLengthMin + 2; k -= 5) {
+        if (k >= focalLengthMax - 2)
+            continue;
+        const deg = 3 * (k - value);
+        if (deg < -60)
+            break;
+        newLabels.push([k, deg]);
+    }
+    {
+        const deg = 3 * (focalLengthMin - value);
+        if (deg > -60)
+            newLabels.push([focalLengthMin, deg]);
+    }
+    for (let k = 5 * Math.ceil((value + 1) / 5); k < focalLengthMax - 2; k += 5) {
+        if (k <= focalLengthMin + 2)
+            continue;
+        const deg = 3 * (k - value);
+        if (deg > 60)
+            break;
+        newLabels.push([k, deg]);
+    }
+    {
+        const deg = 3 * (focalLengthMax - value);
+        if (deg < 60)
+            newLabels.push([focalLengthMax, deg]);
+    }
+    for (const newLabel of newLabels) {
+        const [k, deg] = newLabel;
+        let label = rangeFocal.querySelector(`.val-${k}`);
+        if (label) {
+            label.setAttribute('reuse', 'true');
+            label.style.transform = `translateX(calc(${105 + 115.47 * Math.sin(deg / 180 * Math.PI)}px - 50%)) scaleX(${Math.cos(deg / 180 * Math.PI)})`;
+        }
+        else {
+            label = document.createElement('div');
+            label.innerText = k.toString();
+            label.setAttribute('reuse', 'true');
+            label.classList.add('val');
+            label.classList.add(`val-${k}`);
+            label.style.transform = `translateX(calc(${105 + 115.47 * Math.sin(deg / 180 * Math.PI)}px - 50%)) scaleX(${Math.cos(deg / 180 * Math.PI)})`;
+            rangeFocal.appendChild(label);
+        }
+    }
+    for (let i = 0; i < labels.length; i++) {
+        console.log(labels[i].getAttribute('reuse'));
+        if (labels[i].getAttribute('reuse') === 'false') {
+            console.log(`removed ${labels[i].classList}`);
+            rangeFocal.removeChild(labels[i]);
+        }
+    }
+}
+function addScaleAper(value) {
+    const labels = Array.prototype.slice.call(rangeAperture.getElementsByClassName('val'));
+    for (let i = 0; i < labels.length; i++) {
+        labels[i].setAttribute('reuse', 'false');
+    }
+    const newLabels = [];
+    for (let k = Math.floor(value); k > apertureMin + 0.4; k -= 1) {
+        if (k >= apertureMax - 0.4)
+            continue;
+        const deg = 15 * (k - value);
+        if (deg < -60)
+            break;
+        newLabels.push([k, deg]);
+    }
+    {
+        const deg = 15 * (apertureMin - value);
+        if (deg > -60)
+            newLabels.push([apertureMin, deg]);
+    }
+    for (let k = Math.ceil((value + 0.1)); k < apertureMax - 0.4; k += 1) {
+        if (k <= apertureMin + 0.4)
+            continue;
+        const deg = 15 * (k - value);
+        if (deg > 60)
+            break;
+        newLabels.push([k, deg]);
+    }
+    {
+        const deg = 15 * (apertureMax - value);
+        if (deg < 60)
+            newLabels.push([apertureMax, deg]);
+    }
+    for (const newLabel of newLabels) {
+        const [k, deg] = newLabel;
+        let label = rangeAperture.querySelector(`.val-${k * 10}`);
+        if (label) {
+            label.setAttribute('reuse', 'true');
+            label.style.transform = `translateX(calc(${105 + 115.47 * Math.sin(deg / 180 * Math.PI)}px - 50%)) scaleX(${Math.cos(deg / 180 * Math.PI)})`;
+        }
+        else {
+            label = document.createElement('div');
+            label.innerText = k.toFixed(1);
+            label.setAttribute('reuse', 'true');
+            label.classList.add('val');
+            label.classList.add(`val-${k * 10}`);
+            label.style.transform = `translateX(calc(${105 + 115.47 * Math.sin(deg / 180 * Math.PI)}px - 50%)) scaleX(${Math.cos(deg / 180 * Math.PI)})`;
+            rangeAperture.appendChild(label);
+        }
+    }
+    for (let i = 0; i < labels.length; i++) {
+        if (labels[i].getAttribute('reuse') === 'false') {
+            rangeAperture.removeChild(labels[i]);
+        }
+    }
+}
+addScaleFocal(focalLength);
+addScaleAper(aperture);
 const gl = canvas.getContext('webgl');
 const rayTracer = new RayTracer(gl);
 let times = [];
@@ -166,9 +299,9 @@ const baseMatrix = [1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1];
-let rx = -0.05;
+let rx = -0.6;
 let ry = 0;
-const translation = [0, 0.7, 1.5];
+const translation = [-0.2, 4, 7];
 function recalculateTransform() {
     mat4.translate(rayTracer.cameraMatrix, baseMatrix, translation);
     mat4.rotateY(rayTracer.cameraMatrix, rayTracer.cameraMatrix, ry);
@@ -178,13 +311,30 @@ function recalculateTransform() {
 }
 // events and controls;
 let mouseDown = false;
+let focalDown = false;
+let aperDown = false;
+let prevX = 0;
+let prevF = 0;
+let prevA = 0;
 let lastPos = null;
 let fNumber = 2.8;
-canvas.addEventListener('mousedown', (ev) => {
+canvas.addEventListener('mousedown', () => {
     mouseDown = true;
 });
-window.addEventListener('mouseup', (ev) => {
+rangeFocal.addEventListener('mousedown', (ev) => {
+    focalDown = true;
+    prevX = ev.x;
+    prevF = focalLength;
+});
+rangeAperture.addEventListener('mousedown', (ev) => {
+    aperDown = true;
+    prevX = ev.x;
+    prevA = aperture;
+});
+window.addEventListener('mouseup', () => {
     mouseDown = false;
+    focalDown = false;
+    aperDown = false;
 });
 window.addEventListener('mouseleave', (ev) => {
     lastPos = null;
@@ -202,6 +352,22 @@ window.addEventListener('mousemove', (ev) => {
         rx -= 0.001 * moveY;
         ry -= 0.001 * moveX;
         recalculateTransform();
+    }
+    else if (focalDown) {
+        focalLength = prevF - Math.floor((ev.x - prevX) / 5);
+        focalLength = Math.max(focalLengthMin, focalLength);
+        focalLength = Math.min(focalLengthMax, focalLength);
+        changeFocal();
+    }
+    else if (aperDown) {
+        aperture = prevA - Math.floor((ev.x - prevX) / 5) / 10;
+        aperture = Math.max(apertureMin, aperture);
+        aperture = Math.min(apertureMax, aperture);
+        rayTracer.aperture = focalLength / aperture / 1000;
+        apertureDisplay.innerText = aperture.toFixed(1);
+        addScaleAper(aperture);
+        rayTracer.needRerender = 1;
+        rayTracer.frameCount = 0;
     }
 });
 window.addEventListener('keydown', (ev) => {
@@ -247,7 +413,7 @@ shot.addEventListener('click', () => {
     rayTracer.render();
     // ctx.drawImage(canvas, 0, 0);
     canvas.toBlob((blob) => {
-        saveBlob(blob, `photo-${frame.selectedIndex === 0 ? 'full' : 'aps-c'}-frame-${focal.value}mm-f${apertureInput.value}.png`);
+        saveBlob(blob, `photo-${frame.selectedIndex === 0 ? 'full' : 'aps-c'}-frame-${focalLength}mm-f${aperture}.png`);
     });
 });
 const saveBlob = (function () {
@@ -302,19 +468,13 @@ frame.addEventListener('change', () => {
     rayTracer.frameCount = 0;
 });
 const changeFocal = () => {
-    rayTracer.focalLength = parseFloat(focal.value) / 1000;
-    rayTracer.aperture = parseFloat(focal.value) / parseFloat(apertureInput.value) / 1000;
+    rayTracer.focalLength = focalLength / 1000;
+    rayTracer.aperture = focalLength / aperture / 1000;
+    addScaleFocal(focalLength);
     rayTracer.needRerender = 1;
     rayTracer.frameCount = 0;
-    focalDisplay.innerText = focal.value + 'mm';
+    focalDisplay.innerText = focalLength + 'mm';
 };
-focal.addEventListener('input', changeFocal);
-apertureInput.addEventListener('input', () => {
-    rayTracer.aperture = parseFloat(focal.value) / parseFloat(apertureInput.value) / 1000;
-    rayTracer.needRerender = 1;
-    rayTracer.frameCount = 0;
-    apertureDisplay.innerText = apertureInput.value;
-});
 lens.addEventListener('change', () => {
     const { value } = lens;
     const [p1, maxAperture] = value.split('/');
@@ -326,12 +486,13 @@ lens.addEventListener('change', () => {
         minF = p1;
         maxF = p1;
     }
-    focal.min = minF;
-    focal.max = maxF;
-    focal.value = minF;
-    apertureInput.min = maxAperture;
-    apertureInput.value = maxAperture;
-    apertureDisplay.innerText = apertureInput.value;
+    focalLength = parseInt(minF);
+    focalLengthMax = parseInt(maxF);
+    focalLengthMin = parseInt(minF);
+    apertureMin = parseFloat(maxAperture);
+    aperture = parseFloat(maxAperture);
+    apertureDisplay.innerText = maxAperture;
+    addScaleAper(aperture);
     changeFocal();
 });
 batch.addEventListener('change', () => {

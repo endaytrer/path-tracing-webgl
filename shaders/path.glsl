@@ -163,13 +163,19 @@ vec3 shade(inout Ray ray, RayHit hit)
     if (hit.dist < INF)
     {
         ray.origin = hit.position + hit.normal * 0.001;
-        ray.direction = SampleHemisphere(hit.normal, 1.0);
-        ray.energy *= hit.albedo;
+        float r = rand();
+        vec3 sampled = SampleHemisphere(hit.normal, 1.0);
+        if (r > hit.smoothness) {
+            ray.direction = sampled;
+            ray.energy *= hit.albedo;
+        } else {
+            ray.direction = sampled * (1.0 - hit.smoothness) + hit.smoothness * reflect(ray.direction, hit.normal);
+            ray.energy *= hit.specular;
+        }
         return hit.emission;
     }
     else
     {
-        // ray.energy = vec3(0.0, 0.0, 0.0);
         return vec3(0.6, 0.8, 1.0);
     }
 }

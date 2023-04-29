@@ -138,7 +138,6 @@ export class Shader {
 
             this.textureBindings.push([this.gl.getUniformLocation(program, 'src'), this.gl.getUniformLocation(program, 'prev')])
         }
-        console.log(this);
     }
     private inject(pass: number) {
         this.gl.activeTexture(this.gl.TEXTURE1);

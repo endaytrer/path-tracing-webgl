@@ -4,11 +4,19 @@ body {
     align-items: center;
     justify-content: center;
     height: 100vh;
+    min-width: 1200px;
+    min-height: 640px;
+    background-image: linear-gradient(90deg,  rgb(230, 230, 230) 0%, rgb(143, 143, 143) 3%, rgb(167, 167, 167) 7%, rgb(216, 216, 216) 10%, rgb(216, 216, 216) 90%, rgb(156, 156, 156) 100%);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 .container {
+    margin: 10px;
     overflow: hidden;
     width: 750px;
     height: 500px;
+    border: 12px solid rgb(25, 25, 28);
+    box-shadow: 1px 4px 20px rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
     position: relative;
     display: flex;
     align-items: center;
@@ -16,6 +24,14 @@ body {
 }
 .peripheral {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 600px;
+    /* background-color: rgb(33, 33, 33); */
+    background-image: linear-gradient(90deg,  rgb(65, 65, 65) 0%, black 3%, rgb(19, 19, 19) 7%, rgb(33, 33, 33) 10%, rgb(33, 33, 33) 90%, rgb(19, 19, 19) 100%);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    color: white;
 }
 #canvas {
     scale: 0.5;
@@ -25,4 +41,122 @@ body {
     width: 8px;
     height: 8px;
     border: 1.5px solid rgba(0, 255, 0, 0.5);
+}
+.params {
+    margin: 0 10px;
+    height: 500px;
+    width: 210px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.params>div:first-child{
+    display: flex;
+    /* justify-content: space-around; */
+}
+#af, #shot {
+    margin: 15px;
+    text-transform: uppercase;
+    outline: none;
+    border-radius: 40px;
+    color:rgb(221, 221, 221);
+    box-shadow: 2px 4px 20px rgba(0, 0, 0, 0.4);
+    font-size: 1.2em;
+    letter-spacing: 0.1ch;
+    transition: box-shadow 200ms ease-out;
+}
+#af {
+    width: 60px;
+    height: 60px;
+    border-top: 4px solid rgb(128, 128, 128);
+    border-left: 4px solid rgb(128, 128, 128);
+    border-bottom: 4px solid rgb(55, 55, 55);
+    border-right: 4px solid rgb(55, 55, 55);
+    background-color: rgb(61, 61, 61);
+    font-weight: 100;
+}
+#shot {
+    width: 80px;
+    height:80px;
+    border-top: 4px solid rgb(194, 176, 177);
+    border-left: 4px solid rgb(194, 176, 177);
+    border-bottom: 4px solid rgb(59, 54, 55);
+    border-right: 4px solid rgb(59, 54, 55);
+    background-image: conic-gradient(rgb(178, 178, 178) 0%, rgb(136, 136, 136) 10%, rgb(178, 178, 178) 30%, rgb(123, 123, 123) 35%, rgb(178, 178, 178) 40%, rgb(120, 120, 120) 55%, rgb(178, 178, 178) 70%, rgb(116, 116, 116) 75%, rgb(118, 118, 118) 85%, rgb(178, 178, 178) 100%);
+    text-shadow: 0.5px 0.5px 1px rgba(255, 255, 255, 0.406);
+    color:rgb(59, 54, 55);
+
+    /* background-image: radial-gradient( circle 100px at 30.5% 30.5%,  rgb(95, 95, 95) 0.1%, rgba(0,0,0,1) 100.2% ); */
+}
+#af:hover, #shot:hover {
+    box-shadow: 0 0 10px rgba(235, 235, 255, 0.4);
+}
+#af:active, #shot:active {
+    box-shadow: none;
+}
+
+.params select {
+    width: 100%;
+    background-color: rgb(24, 24, 24);
+    border: none;
+    outline: none;
+    color: rgb(158, 158, 158);
+    font-size: 0.9em;
+}
+.params label,.stats label {
+    display: block;
+    color: rgba(131, 131, 131, 0.875);
+    font-size: 0.8em;
+    letter-spacing: 0.1ch;
+    text-transform: uppercase;
+}
+.range {
+    margin: 5px 0;
+    user-select: none;
+    cursor: pointer;
+    position: relative;
+    width: 100%;
+    height: 40px;
+    /* background-color: white; */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+.range>.move {
+    z-index: 2;
+    position: absolute;
+    top: 0;
+    width: 100%;
+    border-radius: 5px;
+    background-image: linear-gradient(90deg, rgb(28, 28, 28) 0%, transparent 50%, rgba(28, 28, 28, 1) 100%);
+    height: 30px;
+}
+.range>.val {
+    user-select: none;
+    cursor: pointer;
+    z-index: 1;
+    font-family: 'Courier New', Courier, monospace;
+    bottom: 10px;
+    position: absolute;
+    left: 0;
+    text-align: center;
+    font-size: 0.5em;
+}
+.range>.static {
+    width: 1px;
+    height: 10px;
+    background-color: rgb(180, 180, 180);
+}
+.stats {
+    margin: 0 10px;
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+.stats > span {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1em;
+    color: rgb(116, 184, 116);
 }
