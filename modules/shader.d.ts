@@ -9,6 +9,7 @@ export declare class Shader {
     private frameBuffers;
     private textures;
     private prevTextures;
+    private customTextures;
     private injections;
     private get numPasses();
     private rawSource;
@@ -20,6 +21,7 @@ export declare class Shader {
     render(): void;
     static uniformArgs(type: uniformType, pass: number): (target: Object, propertyName: string) => void;
     static uniformSingle(type: uniformType, pass: number): (target: Object, propertyName: string) => void;
+    static uniformTexture(pass: number): (target: Object, propertyName: string) => void;
     static uniformMatrix(type: uniformType, pass: number, transpose: boolean): (target: Object, propertyName: string) => void;
     static source(pass: number): (target: Object, propertyName: string) => void;
 }
@@ -31,4 +33,5 @@ export declare const uniform3f: (pass: number) => (target: Object, propertyName:
 export declare const uniform3fv: (pass: number) => (target: Object, propertyName: string) => void;
 export declare const uniformMatrix3fv: (pass: number, transposed: boolean) => (target: Object, propertyName: string) => void;
 export declare const uniformMatrix4fv: (pass: number, transposed: boolean) => (target: Object, propertyName: string) => void;
+export declare const uniformTexture: typeof Shader.uniformTexture;
 export declare const source: typeof Shader.source;

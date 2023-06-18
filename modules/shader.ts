@@ -17,6 +17,7 @@ export class Shader {
     private frameBuffers: WebGLFramebuffer[] = [];
     private textures: WebGLTexture[] = [];
     private prevTextures: WebGLTexture[] = [];
+    private customTextures: {[name: string]: WebGLTexture}[] = [];
 
     private injections(pass: number) {
         const ans = {}
@@ -71,10 +72,12 @@ export class Shader {
         const sources = this.evaluateSources();
         this.programs = [];
         this.compiledInjections = [];
+        this.customTextures = [];
         this.textureBindings = [];
         this.frameBuffers = [];
         this.textures = [];
         this.prevTextures = [];
+        this.customTextures = [];
         for (let i = 0; i < this.numPasses; i++) {
             if (sources[i] === null) continue;
             const vertexShader = this.loadShader(this.gl.VERTEX_SHADER, Shader.vsSource);
@@ -103,11 +106,27 @@ export class Shader {
             this.gl.vertexAttribPointer(index, 2, this.gl.FLOAT, false, 0, 0);
             this.gl.enableVertexAttribArray(index);
             const compiled = [];
-            for (const inj in this.injections(i)) {
+            const customTexturePass = {};
+            const passInjections = this.injections(i);
+            function isPowerOf2(value) {
+                return (value & (value - 1)) === 0;
+            }
+            for (const inj in passInjections) {
                 const index = this.gl.getUniformLocation(program, inj);
                 compiled.push({index, name: inj});
+                if (passInjections[inj].type == 'Texture') {
+                    const texture = this.gl.createTexture();
+                    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+                    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, passInjections[inj].texture);
+                    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+                    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+                    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+                    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+                    customTexturePass[inj] = texture;
+                }
             }
             this.compiledInjections.push(compiled);
+            this.customTextures.push(customTexturePass);
 
             const frameBuffer = this.gl.createFramebuffer();
             this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, frameBuffer);
@@ -146,8 +165,16 @@ export class Shader {
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.prevTextures[pass]);
         this.gl.uniform1i(this.textureBindings[pass][1], 0);
-
+        const base = this.gl.TEXTURE2;
+        let customCount = 0;
         this.compiledInjections[pass].forEach((val) => {
+            if (this.injections(pass)[val.name].type == 'Texture') {
+                this.gl.activeTexture(base + customCount);
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.customTextures[pass][val.name]);
+                this.gl.uniform1i(val.index, 2 + customCount);
+                customCount++;
+                return;
+            }
             if (this.injections(pass)[val.name].transpose !== undefined) {
                 this.gl[`uniform${this.injections(pass)[val.name].type}`].apply(this.gl, [val.index, this.injections(pass)[val.name].transpose, ...this.injections(pass)[val.name].args]);
             } else {
@@ -194,6 +221,22 @@ export class Shader {
                 },
                 set(v) {
                     target[`__inj_${pass}_` + propertyName] = {type, args: [v]};
+                }
+            }
+            Reflect.defineProperty(target, propertyName, descriptor);
+        }
+    }
+    public static uniformTexture(pass: number) {
+        return function(target: Object, propertyName: string) {
+            if (!(target instanceof Shader)) return;
+            const descriptor: PropertyDescriptor = {
+                configurable: true,
+                enumerable: false,
+                get() {
+                    return target[`__inj_${pass}_` + propertyName].texture;
+                },
+                set(v) {
+                    target[`__inj_${pass}_` + propertyName] = {type: 'Texture', texture: v};
                 }
             }
             Reflect.defineProperty(target, propertyName, descriptor);
@@ -246,4 +289,5 @@ export const uniform3f = (pass: number) => Shader.uniformArgs('3f', pass);
 export const uniform3fv = (pass: number) => Shader.uniformSingle('3fv', pass);
 export const uniformMatrix3fv = (pass: number, transposed: boolean) => Shader.uniformMatrix('Matrix3fv', pass, transposed);
 export const uniformMatrix4fv = (pass: number, transposed: boolean) => Shader.uniformMatrix('Matrix4fv', pass, transposed);
+export const uniformTexture = Shader.uniformTexture;
 export const { source } = Shader;

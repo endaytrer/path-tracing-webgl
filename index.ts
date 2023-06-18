@@ -1,5 +1,5 @@
 
-import { Shader, uniform3f, uniformMatrix4fv, source, uniform1f, uniform1i, uniform3fv, uniform1fv } from './modules/shader.js';
+import { Shader, uniform3f, uniformMatrix4fv, uniformTexture, source, uniform1f, uniform1i, uniform1fv } from './modules/shader.js';
 import { RNG } from './rng.js';
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const shot = document.getElementById('shot') as HTMLButtonElement;
@@ -23,6 +23,9 @@ let focalLengthMax = 70;
 let aperture = 2.8;
 let apertureMin = 2.8;
 let apertureMax = 22;
+let rx = -0.2;
+let ry = 2.94;
+const translation: vec3 = [1.1211650110349594, 2.3, -4.993709615030947] ;
 
 let animation: number;
 canvas.width = 1500;
@@ -35,26 +38,30 @@ class Sphere {
     specular: vec3 = [0, 0, 0];
     emission: vec3 = [0, 0, 0];
     smoothness: number = 0;
-    constructor(position: vec3, radius: number, albedo: vec3, specular: vec3, smoothness: number, emission: vec3) {
+    opacity: number = 0;
+    refract_rate: number = 0;
+    constructor(position: vec3, radius: number, albedo: vec3, specular: vec3, smoothness: number, emission: vec3, opacity: number, refract_rate: number) {
         this.position = position;
         this.radius = radius;
         this.albedo = albedo;
         this.specular = specular;
         this.smoothness = smoothness;
         this.emission = emission;
+        this.opacity = opacity;
+        this.refract_rate = refract_rate;
     }
     toParam() {
-        return [...this.position, this.radius, ...this.albedo, ...this.specular, ...this.emission, this.smoothness];
+        return [...this.position, this.radius, ...this.albedo, ...this.specular, ...this.emission, this.smoothness, this.opacity, this.refract_rate];
     }
 }
-const rng = new RNG(42);
+const rng = new RNG(1145141919);
 const spheres: Sphere[] = [];
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 20; i++) {
     const radius = rng.nextFloat() * 0.3 + 0.2;
-    const pos: vec3 = [rng.nextFloat() * 8 - 4, radius, rng.nextFloat() * 8 - 4];
+    const pos: vec3 = [rng.nextFloat() * 5 - 2.5, radius + rng.nextFloat() * 2.5, rng.nextFloat() * 5 - 2.5];
     let flag = true;
     for (const sphere of spheres) {
-        if (Math.pow(sphere.position[0] - pos[0], 2) + Math.pow(sphere.position[2] - pos[2], 2) < Math.pow(sphere.radius + radius, 2)) {
+        if (Math.pow(sphere.position[0] - pos[0], 2) + Math.pow(sphere.position[1] - pos[1], 2)+ Math.pow(sphere.position[2] - pos[2], 2) < Math.pow(sphere.radius + radius, 2)) {
             flag = false;
             break;
         }
@@ -64,7 +71,7 @@ for (let i = 0; i < 10; i++) {
         continue;
     }
     const albedo: vec3 = [rng.nextFloat(), rng.nextFloat(), rng.nextFloat()];
-    spheres.push(new Sphere(pos, radius, albedo, albedo, rng.nextFloat(), rng.nextFloat() > 0.3 ? [0, 0, 0]: [rng.nextFloat() * 40, rng.nextFloat() * 40, rng.nextFloat() * 40]))
+    spheres.push(new Sphere(pos, radius, albedo, albedo, rng.nextFloat(), rng.nextFloat() > 0.2 ? [0, 0, 0]: [rng.nextFloat() * 40, rng.nextFloat() * 40, rng.nextFloat() * 40], rng.nextFloat() > 0.5 ? 0.5 * rng.nextFloat() : 1, 1 + rng.nextFloat() / 10))
 }
 class RayTracer extends Shader {
     @source(0)
@@ -92,6 +99,8 @@ class RayTracer extends Shader {
                     0,   0,   0,   1];
     @uniform1fv(0)
     sphereParams = spheres.map((val) => val.toParam()).flat();
+    @uniformTexture(0)
+    skymap: HTMLImageElement;
 
     @uniform1i(1) frameCount = 0;
     @uniform1i(1) needRerender = 0;
@@ -142,9 +151,7 @@ function addScaleFocal(value: number) {
         }
     }
     for (let i = 0; i < labels.length; i++) {
-        console.log(labels[i].getAttribute('reuse'))
         if (labels[i].getAttribute('reuse') === 'false') {
-            console.log(`removed ${labels[i].classList}`)
             rangeFocal.removeChild(labels[i]);
         }
     }
@@ -228,12 +235,15 @@ function renderLoop(now: number) {
     rayTracer.needRerender = 0;
 }
 async function main() {
+    rayTracer.skymap = await new Promise((res, rej) => {
+        const image = new Image();
+        image.onload = () => res(image);
+        image.src = "textures/FS002_Sunrise.png"
+    });
     rayTracer.source = await (await fetch('shaders/path.glsl')).text();
     rayTracer.postprocessor = await (await fetch('shaders/average.glsl')).text();
     rayTracer.compile();
-    mat4.translate(rayTracer.cameraMatrix, baseMatrix, translation);
-    mat4.rotateX(rayTracer.cameraMatrix, rayTracer.cameraMatrix, rx);
-    mat4.rotateY(rayTracer.cameraMatrix, rayTracer.cameraMatrix, ry);
+    recalculateTransform();
     animation = requestAnimationFrame(renderLoop);
 }
 main()
@@ -243,9 +253,6 @@ const baseMatrix = [1,   0,   0,   0,
                     0,   1,   0,   0,
                     0,   0,   1,   0,
                     0,   0,   0,   1];
-let rx = -0.6;
-let ry = 0;
-const translation: vec3 = [-0.2, 4, 7];
 
 function recalculateTransform() {
 

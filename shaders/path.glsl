@@ -5,8 +5,10 @@ struct Sphere {
     float radius;
     vec3 albedo;
     vec3 specular;
-    vec3 emission;
     float smoothness;
+    vec3 emission;
+    float opacity;
+    float refract_rate;
 };
 
 uniform float t;
@@ -20,16 +22,17 @@ uniform mat4 cameraMatrix;
 uniform float sphereParams[${sphereParams.length}];
 uniform int batchSize;
 uniform float exposure;
+uniform sampler2D skymap;
 
-Sphere spheres[${sphereParams.length / 14}];
+Sphere spheres[${sphereParams.length / 16}];
 
 float shaderseed;
 vec2 coord;
 
-const float PI = 3.1415926536;
+const float PI = 3.141592654;
 const float INF = 1.0 / 0.0;
 float rand() {
-    float result = fract(sin(shaderseed / 100.0 * dot(coord, vec2(12.9898, 78.233))) * 43758.5453);
+    float result = fract(sin(shaderseed / 100.0 * dot(coord, vec2(12.9898, 78.233))) * 437.5453);
     shaderseed += 1.0;
     return result;
 }
@@ -49,6 +52,8 @@ struct RayHit
     vec3 specular;
     vec3 emission;
     float smoothness;
+    float opacity;
+    float refract_rate;
 };
 
 struct Plane {
@@ -56,8 +61,10 @@ struct Plane {
     vec3 normal;
     vec3 albedo;
     vec3 specular;
-    vec3 emission;
     float smoothness;
+    vec3 emission;
+    float opacity;
+    float refract_rate;
 };
 
 
@@ -100,6 +107,8 @@ void intersectSphere(Ray ray, inout RayHit bestHit, Sphere sphere)
         bestHit.specular = sphere.specular;
         bestHit.emission = sphere.emission;
         bestHit.smoothness = sphere.smoothness;
+        bestHit.opacity = sphere.opacity;
+        bestHit.refract_rate = sphere.refract_rate;
     }
 }
 void intersectPlane(Ray ray, inout RayHit bestHit, Plane plane)
@@ -113,6 +122,8 @@ void intersectPlane(Ray ray, inout RayHit bestHit, Plane plane)
         bestHit.specular = plane.specular;
         bestHit.emission = plane.emission;
         bestHit.smoothness = plane.smoothness;
+        bestHit.opacity = plane.opacity;
+        bestHit.refract_rate = plane.refract_rate;
     }
 }
 
@@ -151,9 +162,10 @@ RayHit trace(Ray ray) {
     plane.specular = vec3(1.0, 0.78, 0.34);
     plane.emission = vec3(0.0, 0.0, 0.0);
     plane.smoothness = 0.0;
+    plane.opacity = 1.0;
     intersectPlane(ray, bestHit, plane);
 
-    for (int i = 0; i < ${sphereParams.length / 14}; i++) {
+    for (int i = 0; i < ${sphereParams.length / 16}; i++) {
         intersectSphere(ray, bestHit, spheres[i]);
     }
     return bestHit;
@@ -162,21 +174,40 @@ vec3 shade(inout Ray ray, RayHit hit)
 {
     if (hit.dist < INF)
     {
-        ray.origin = hit.position + hit.normal * 0.001;
-        float r = rand();
-        vec3 sampled = SampleHemisphere(hit.normal, 1.0);
-        if (r > hit.smoothness) {
-            ray.direction = sampled;
-            ray.energy *= hit.albedo;
+        float roulette = rand();
+        if (roulette > hit.opacity) {
+            float refract_ratio;
+            vec3 normal;
+            if (dot(ray.direction, hit.normal) > 0.0) {
+                // refract out
+                refract_ratio = hit.refract_rate;
+                ray.origin = hit.position + hit.normal * 0.001;
+                normal = -hit.normal;
+            } else {
+                // refract in
+                refract_ratio = 1.0 / hit.refract_rate;
+                ray.origin = hit.position - hit.normal * 0.001;
+                normal = hit.normal;
+            }
+            ray.direction = refract(ray.direction, normal, refract_ratio);
+            ray.energy = normalize(hit.albedo) * dot(ray.energy, normalize(hit.albedo));
         } else {
-            ray.direction = sampled * (1.0 - hit.smoothness) + hit.smoothness * reflect(ray.direction, hit.normal);
-            ray.energy *= hit.specular;
+            ray.origin = hit.position + hit.normal * 0.001;
+            roulette = rand();
+            vec3 sampled = SampleHemisphere(hit.normal, 1.0);
+            if (roulette > hit.smoothness) {
+                ray.direction = sampled;
+                ray.energy *= hit.albedo;
+            } else {
+                ray.direction = sampled * (1.0 - hit.smoothness) + hit.smoothness * reflect(ray.direction, hit.normal);
+                ray.energy *= hit.specular;
+            }
         }
         return hit.emission;
     }
     else
     {
-        return vec3(0.6, 0.8, 1.0);
+        return texture2D(skymap, vec2(atan(ray.direction.z, ray.direction.x) / 2.0 + PI / 2.0, acos(ray.direction.y)) / PI).xyz;
     }
 }
 Ray createCameraRay() {
@@ -198,15 +229,17 @@ Ray createCameraRay() {
 
 
 void main() {
-    for (int i = 0; i < ${sphereParams.length / 14}; i++) {
-        spheres[i].position = vec3(sphereParams[i * 14 + 0], sphereParams[i * 14 + 1], sphereParams[i * 14 + 2]);
-        spheres[i].radius = sphereParams[i * 14 + 3];
-        spheres[i].albedo = vec3(sphereParams[i * 14 + 4], sphereParams[i * 14 + 5], sphereParams[i * 14 + 6]);
-        spheres[i].specular = vec3(sphereParams[i * 14 + 7], sphereParams[i * 14 + 8], sphereParams[i * 14 + 9]);
-        spheres[i].emission = vec3(sphereParams[i * 14 + 10], sphereParams[i * 14 + 11], sphereParams[i * 14 + 12]);
-        spheres[i].smoothness = sphereParams[i * 14 + 13];
+    for (int i = 0; i < ${sphereParams.length / 16}; i++) {
+        spheres[i].position = vec3(sphereParams[i * 16 + 0], sphereParams[i * 16 + 1], sphereParams[i * 16 + 2]);
+        spheres[i].radius = sphereParams[i * 16 + 3];
+        spheres[i].albedo = vec3(sphereParams[i * 16 + 4], sphereParams[i * 16 + 5], sphereParams[i * 16 + 6]);
+        spheres[i].specular = vec3(sphereParams[i * 16 + 7], sphereParams[i * 16 + 8], sphereParams[i * 16 + 9]);
+        spheres[i].emission = vec3(sphereParams[i * 16 + 10], sphereParams[i * 16 + 11], sphereParams[i * 16 + 12]);
+        spheres[i].smoothness = sphereParams[i * 16 + 13];
+        spheres[i].opacity = sphereParams[i * 16 + 14];
+        spheres[i].refract_rate = sphereParams[i * 16 + 15];
     }
-    shaderseed = fract(t);
+    shaderseed = fract(fract(t * 0.212) + gl_FragCoord.x * 1.232 + gl_FragCoord.y * -2.381);
     coord = vec2(gl_FragCoord.x, gl_FragCoord.y);
 
     vec3 result = vec3(0.0, 0.0, 0.0);

@@ -13,7 +13,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { Shader, uniform3f, uniformMatrix4fv, source, uniform1f, uniform1i, uniform1fv } from './modules/shader.js';
+import { Shader, uniform3f, uniformMatrix4fv, uniformTexture, source, uniform1f, uniform1i, uniform1fv } from './modules/shader.js';
 import { RNG } from './rng.js';
 const canvas = document.getElementById('canvas');
 const shot = document.getElementById('shot');
@@ -36,36 +36,43 @@ let focalLengthMax = 70;
 let aperture = 2.8;
 let apertureMin = 2.8;
 let apertureMax = 22;
+let rx = -0.2;
+let ry = 2.94;
+const translation = [1.1211650110349594, 2.3, -4.993709615030947];
 let animation;
 canvas.width = 1500;
 canvas.height = 1000;
 class Sphere {
-    constructor(position, radius, albedo, specular, smoothness, emission) {
+    constructor(position, radius, albedo, specular, smoothness, emission, opacity, refract_rate) {
         this.position = [0, 0, 0];
         this.radius = 0;
         this.albedo = [0, 0, 0];
         this.specular = [0, 0, 0];
         this.emission = [0, 0, 0];
         this.smoothness = 0;
+        this.opacity = 0;
+        this.refract_rate = 0;
         this.position = position;
         this.radius = radius;
         this.albedo = albedo;
         this.specular = specular;
         this.smoothness = smoothness;
         this.emission = emission;
+        this.opacity = opacity;
+        this.refract_rate = refract_rate;
     }
     toParam() {
-        return [...this.position, this.radius, ...this.albedo, ...this.specular, ...this.emission, this.smoothness];
+        return [...this.position, this.radius, ...this.albedo, ...this.specular, ...this.emission, this.smoothness, this.opacity, this.refract_rate];
     }
 }
-const rng = new RNG(42);
+const rng = new RNG(1145141919);
 const spheres = [];
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 20; i++) {
     const radius = rng.nextFloat() * 0.3 + 0.2;
-    const pos = [rng.nextFloat() * 8 - 4, radius, rng.nextFloat() * 8 - 4];
+    const pos = [rng.nextFloat() * 5 - 2.5, radius + rng.nextFloat() * 2.5, rng.nextFloat() * 5 - 2.5];
     let flag = true;
     for (const sphere of spheres) {
-        if (Math.pow(sphere.position[0] - pos[0], 2) + Math.pow(sphere.position[2] - pos[2], 2) < Math.pow(sphere.radius + radius, 2)) {
+        if (Math.pow(sphere.position[0] - pos[0], 2) + Math.pow(sphere.position[1] - pos[1], 2) + Math.pow(sphere.position[2] - pos[2], 2) < Math.pow(sphere.radius + radius, 2)) {
             flag = false;
             break;
         }
@@ -75,7 +82,7 @@ for (let i = 0; i < 10; i++) {
         continue;
     }
     const albedo = [rng.nextFloat(), rng.nextFloat(), rng.nextFloat()];
-    spheres.push(new Sphere(pos, radius, albedo, albedo, rng.nextFloat(), rng.nextFloat() > 0.3 ? [0, 0, 0] : [rng.nextFloat() * 40, rng.nextFloat() * 40, rng.nextFloat() * 40]));
+    spheres.push(new Sphere(pos, radius, albedo, albedo, rng.nextFloat(), rng.nextFloat() > 0.2 ? [0, 0, 0] : [rng.nextFloat() * 40, rng.nextFloat() * 40, rng.nextFloat() * 40], rng.nextFloat() > 0.5 ? 0.5 * rng.nextFloat() : 1, 1 + rng.nextFloat() / 10));
 }
 class RayTracer extends Shader {
     constructor() {
@@ -143,6 +150,9 @@ __decorate([
     uniform1fv(0)
 ], RayTracer.prototype, "sphereParams", void 0);
 __decorate([
+    uniformTexture(0)
+], RayTracer.prototype, "skymap", void 0);
+__decorate([
     uniform1i(1)
 ], RayTracer.prototype, "frameCount", void 0);
 __decorate([
@@ -198,9 +208,7 @@ function addScaleFocal(value) {
         }
     }
     for (let i = 0; i < labels.length; i++) {
-        console.log(labels[i].getAttribute('reuse'));
         if (labels[i].getAttribute('reuse') === 'false') {
-            console.log(`removed ${labels[i].classList}`);
             rangeFocal.removeChild(labels[i]);
         }
     }
@@ -285,12 +293,15 @@ function renderLoop(now) {
 }
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
+        rayTracer.skymap = yield new Promise((res, rej) => {
+            const image = new Image();
+            image.onload = () => res(image);
+            image.src = "textures/FS002_Sunrise.png";
+        });
         rayTracer.source = yield (yield fetch('shaders/path.glsl')).text();
         rayTracer.postprocessor = yield (yield fetch('shaders/average.glsl')).text();
         rayTracer.compile();
-        mat4.translate(rayTracer.cameraMatrix, baseMatrix, translation);
-        mat4.rotateX(rayTracer.cameraMatrix, rayTracer.cameraMatrix, rx);
-        mat4.rotateY(rayTracer.cameraMatrix, rayTracer.cameraMatrix, ry);
+        recalculateTransform();
         animation = requestAnimationFrame(renderLoop);
     });
 }
@@ -299,9 +310,6 @@ const baseMatrix = [1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1];
-let rx = -0.6;
-let ry = 0;
-const translation = [-0.2, 4, 7];
 function recalculateTransform() {
     mat4.translate(rayTracer.cameraMatrix, baseMatrix, translation);
     mat4.rotateY(rayTracer.cameraMatrix, rayTracer.cameraMatrix, ry);
