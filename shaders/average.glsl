@@ -1,16 +1,18 @@
-// #version 300 es
+#version 300 es
 precision highp float;
-uniform sampler2D src;
-uniform sampler2D prev;
+precision mediump usampler2D;
+uniform usampler2D src;
+uniform usampler2D prev;
 uniform int frameCount;
 uniform int needRerender;
-varying vec2 vUV;
+in vec2 vUV;
+out uvec4 fragColor;
 void main() {
-  vec4 currentFrame = texture2D(src, vUV);
-  vec4 accumulatedFrame = texture2D(prev, vUV);
+  uvec4 currentFrame = texture(src, vUV);
+  uvec4 accumulatedFrame = texture(prev, vUV);
   if (needRerender == 1) {
-    gl_FragColor = currentFrame;
+    fragColor = currentFrame;
   } else {
-    gl_FragColor = (accumulatedFrame * float(frameCount) + currentFrame) / float(frameCount + 1);
+    fragColor = uvec4((vec4(accumulatedFrame) * float(frameCount) + vec4(currentFrame)) / float(frameCount + 1));
   }
 }

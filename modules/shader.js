@@ -1,4 +1,4 @@
-class Shader {
+export class Shader {
     injections(pass) {
         const ans = {};
         Object.getOwnPropertyNames(Object.getPrototypeOf(this)).forEach((val) => {
@@ -53,7 +53,6 @@ class Shader {
         return ans;
     }
     compile() {
-        this.gl.getExtension('OES_texture_float');
         const sources = this.evaluateSources();
         this.programs = [];
         this.compiledInjections = [];
@@ -89,9 +88,6 @@ class Shader {
             const compiled = [];
             const customTexturePass = {};
             const passInjections = this.injections(i);
-            function isPowerOf2(value) {
-                return (value & (value - 1)) === 0;
-            }
             for (const inj in passInjections) {
                 const index = this.gl.getUniformLocation(program, inj);
                 compiled.push({ index, name: inj });
@@ -116,7 +112,7 @@ class Shader {
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGB, this.gl.canvas.width, this.gl.canvas.height, 0, this.gl.RGB, this.gl.FLOAT, null);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA32UI, this.gl.canvas.width, this.gl.canvas.height, 0, this.gl.RGBA_INTEGER, this.gl.UNSIGNED_INT, null);
             this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0);
             this.textures.push(texture);
             this.frameBuffers.push(frameBuffer);
@@ -126,20 +122,45 @@ class Shader {
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGB, this.gl.canvas.width, this.gl.canvas.height, 0, this.gl.RGB, this.gl.FLOAT, null);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA32UI, this.gl.canvas.width, this.gl.canvas.height, 0, this.gl.RGBA_INTEGER, this.gl.UNSIGNED_INT, null);
             this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
             this.gl.bindTexture(this.gl.TEXTURE_2D, null);
             this.prevTextures.push(prevTexture);
             this.textureBindings.push([this.gl.getUniformLocation(program, 'src'), this.gl.getUniformLocation(program, 'prev')]);
         }
+        // final program
+        {
+            const vertexShader = this.loadShader(this.gl.VERTEX_SHADER, Shader.vsSource);
+            const fragmentShader = this.loadShader(this.gl.FRAGMENT_SHADER, Shader.copyFragShader);
+            const program = this.gl.createProgram();
+            if (program === null) {
+                alert("cannot create final program");
+                return;
+            }
+            this.gl.attachShader(program, vertexShader);
+            this.gl.attachShader(program, fragmentShader);
+            this.gl.linkProgram(program);
+            if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+                alert(`Unable to initialize the shader program: ${this.gl.getProgramInfoLog(program)}`);
+                return;
+            }
+            this.finalProgram = program;
+            const buffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+            const positions = [1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0];
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW);
+            const index = this.gl.getAttribLocation(program, "a_position");
+            this.gl.vertexAttribPointer(index, 2, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(index);
+        }
     }
     inject(pass) {
-        this.gl.activeTexture(this.gl.TEXTURE1);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.textures[pass - 1]);
-        this.gl.uniform1i(this.textureBindings[pass][0], 1);
         this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.textures[pass - 1]);
+        this.gl.uniform1i(this.textureBindings[pass][0], 0);
+        this.gl.activeTexture(this.gl.TEXTURE1);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.prevTextures[pass]);
-        this.gl.uniform1i(this.textureBindings[pass][1], 0);
+        this.gl.uniform1i(this.textureBindings[pass][1], 1);
         const base = this.gl.TEXTURE2;
         let customCount = 0;
         this.compiledInjections[pass].forEach((val) => {
@@ -165,10 +186,19 @@ class Shader {
             this.inject(i);
             this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
             this.gl.bindTexture(this.gl.TEXTURE_2D, this.prevTextures[i]);
-            this.gl.copyTexImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGB, 0, 0, this.gl.canvas.width, this.gl.canvas.height, 0);
+            this.gl.copyTexImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 0, 0, this.gl.canvas.width, this.gl.canvas.height, 0);
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.useProgram(this.finalProgram);
+        // inject src
+        {
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.textures[this.programs.length - 1]);
+            this.gl.uniform1i(this.gl.getUniformLocation(this.finalProgram, "src"), 0);
+        }
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+        // this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        // this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
     }
     static uniformArgs(type, pass) {
         return function (target, propertyName) {
@@ -260,15 +290,24 @@ class Shader {
         };
     }
 }
-Shader.vsSource = `
-        attribute vec2 a_position;
-        varying vec2 vUV;
-        void main() {
-            vUV = a_position * 0.5 + 0.5;
-            gl_Position = vec4(a_position, 0, 1);
-        }
-    `;
-export { Shader };
+Shader.vsSource = `#version 300 es
+in vec2 a_position;
+out vec2 vUV;
+void main() {
+    vUV = a_position * 0.5 + 0.5;
+    gl_Position = vec4(a_position, 0, 1);
+}
+`;
+Shader.copyFragShader = `#version 300 es
+precision mediump usampler2D;
+precision highp float;
+uniform usampler2D src;
+in vec2 vUV;
+out vec4 fragColor;
+void main() {
+    fragColor = vec4(texture(src, vUV)) / 65535.0;
+}
+`;
 export const uniform1f = (pass) => Shader.uniformSingle('1f', pass);
 export const uniform1fv = (pass) => Shader.uniformSingle('1fv', pass);
 export const uniform1i = (pass) => Shader.uniformSingle('1i', pass);

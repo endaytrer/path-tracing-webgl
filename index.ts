@@ -213,7 +213,7 @@ function addScaleAper(value: number) {
 addScaleFocal(focalLength);
 addScaleAper(aperture);
 
-const gl = canvas.getContext('webgl');
+const gl = canvas.getContext('webgl2');
 const rayTracer = new RayTracer(gl);
 let times = [];
 let then = 0;

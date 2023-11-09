@@ -1,3 +1,4 @@
+#version 300 es
 precision highp float;
 
 struct Sphere {
@@ -23,6 +24,7 @@ uniform float sphereParams[${sphereParams.length}];
 uniform int batchSize;
 uniform float exposure;
 uniform sampler2D skymap;
+out uvec4 fragColor;
 
 Sphere spheres[${sphereParams.length / 16}];
 
@@ -207,7 +209,8 @@ vec3 shade(inout Ray ray, RayHit hit)
     }
     else
     {
-        return texture2D(skymap, vec2(atan(ray.direction.z, ray.direction.x) / 2.0 + PI / 2.0, acos(ray.direction.y)) / PI).xyz;
+        ray.direction = normalize(ray.direction);
+        return texture(skymap, vec2(atan(ray.direction.z, ray.direction.x) / 2.0 + PI / 2.0, acos(ray.direction.y)) / PI).xyz;
     }
 }
 Ray createCameraRay() {
@@ -254,5 +257,5 @@ void main() {
                 break;
         }
     }
-    gl_FragColor = vec4(exposure * result / float(batchSize), 1.0);
+    fragColor = uvec4(exposure * result / float(batchSize) * 65535.0, 65535);
 }
